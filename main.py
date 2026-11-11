@@ -33,10 +33,7 @@ def normalize_code(code: str) -> str:
     return re.sub(r'[\s\-]', '', code.upper())
 
 def term_to_sort_key(term: str) -> int:
-    """
-    Converts term (<2-digit-year><season>) to an integer for chronological sorting.
-    Season order: W (1) < SP (2) < S (3) < F (4)
-    """
+    """Converts term (<2-digit-year><season>) to an integer for chronological sorting."""
     if not term:
         return 0
     match = re.match(r'^(\d{2})([A-Za-z]+)$', term.strip())
@@ -64,7 +61,6 @@ def get_audit_report(student_id: str, strict: Optional[bool] = Query(False)):
     earned_credits_set = set()
     total_earned = 0
 
-    # Process history & avoid double-counting retakes
     for h in history:
         norm_code = normalize_code(h.get("course_code", ""))
         status = h.get("status", "").upper()
@@ -82,7 +78,6 @@ def get_audit_report(student_id: str, strict: Optional[bool] = Query(False)):
     total_planned = 0
     has_issues = False
 
-    # Group planned courses by term
     terms_planned = {}
     for p in plan:
         term = p.get("term", "26F")
@@ -99,7 +94,6 @@ def get_audit_report(student_id: str, strict: Optional[bool] = Query(False)):
             
             total_planned += catalog_entry.get("credits", 3)
 
-            # 1. Prerequisite check across chronological timeline
             prereqs = catalog_entry.get("prerequisites", [])
             for req in prereqs:
                 req_norm = normalize_code(req)
@@ -111,7 +105,6 @@ def get_audit_report(student_id: str, strict: Optional[bool] = Query(False)):
                         "message": f"Missing prerequisite: {req}"
                     })
 
-            # 2. Cross-list check against completed courses
             cross_list = catalog_entry.get("cross_list", [])
             for cl in cross_list:
                 cl_norm = normalize_code(cl)
@@ -131,7 +124,6 @@ def get_audit_report(student_id: str, strict: Optional[bool] = Query(False)):
 
     total_remaining = max(0, 120 - total_earned - total_planned)
 
-    # Strict mode handling
     if has_issues or cross_list_violations:
         status_val = "failed" if strict else "warning"
     else:
